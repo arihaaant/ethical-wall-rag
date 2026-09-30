@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-v2 = ["vllm>=0.6"]
+llm = ["vllm>=0.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
