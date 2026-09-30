@@ -1,0 +1,266 @@
+{
+  "contracts": 60,
+  "chunks": 4108,
+  "k": 5,
+  "redteam_queries": 288,
+  "leak_unfiltered": {
+    "k": 219,
+    "n": 288,
+    "rate": 0.7604166666666666,
+    "ci_low": 0.7078991792347145,
+    "ci_high": 0.8060785147027298
+  },
+  "leak_postfilter": {
+    "k": 0,
+    "n": 288,
+    "rate": 0.0,
+    "ci_low": 8.673617379884035e-19,
+    "ci_high": 0.013162827640106813
+  },
+  "leak_filtered": {
+    "k": 0,
+    "n": 288,
+    "rate": 0.0,
+    "ci_low": 8.673617379884035e-19,
+    "ci_high": 0.013162827640106813
+  },
+  "avg_returned_postfilter": 1.875,
+  "avg_returned_filtered": 5.0,
+  "leak_by_kind": [
+    {
+      "kind": "direct",
+      "wall": false,
+      "leak_unfiltered": 1.0,
+      "leak_filtered": 0.0
+    },
+    {
+      "kind": "direct",
+      "wall": true,
+      "leak_unfiltered": 1.0,
+      "leak_filtered": 0.0
+    },
+    {
+      "kind": "multihop",
+      "wall": false,
+      "leak_unfiltered": 0.5,
+      "leak_filtered": 0.0
+    },
+    {
+      "kind": "multihop",
+      "wall": true,
+      "leak_unfiltered": 0.5625,
+      "leak_filtered": 0.0
+    }
+  ],
+  "citation_queries": 500,
+  "hit_at_k": {
+    "k": 174,
+    "n": 500,
+    "rate": 0.348,
+    "ci_low": 0.30755030205694756,
+    "ci_high": 0.39076749744336436
+  },
+  "top1": {
+    "k": 70,
+    "n": 500,
+    "rate": 0.14,
+    "ci_low": 0.11232266018786358,
+    "ci_high": 0.17316686494445405
+  },
+  "hit_at_k_clauses": {
+    "k": 163,
+    "n": 347,
+    "rate": 0.4697406340057637,
+    "ci_low": 0.41784741297642924,
+    "ci_high": 0.5222964911374443
+  },
+  "hit_at_k_metadata": {
+    "k": 11,
+    "n": 153,
+    "rate": 0.0718954248366013,
+    "ci_low": 0.04061660892210965,
+    "ci_high": 0.12414504921980331
+  },
+  "hit_by_category": [
+    {
+      "category": "Competitive Restriction Exception",
+      "mean": 0.0,
+      "count": 2
+    },
+    {
+      "category": "Covenant Not To Sue",
+      "mean": 0.0,
+      "count": 4
+    },
+    {
+      "category": "Price Restrictions",
+      "mean": 0.0,
+      "count": 3
+    },
+    {
+      "category": "Non-Compete",
+      "mean": 0.0,
+      "count": 4
+    },
+    {
+      "category": "Volume Restriction",
+      "mean": 0.0,
+      "count": 6
+    },
+    {
+      "category": "Agreement Date",
+      "mean": 0.047619047619047616,
+      "count": 21
+    },
+    {
+      "category": "Parties",
+      "mean": 0.07,
+      "count": 100
+    },
+    {
+      "category": "Document Name",
+      "mean": 0.07142857142857142,
+      "count": 14
+    },
+    {
+      "category": "Minimum Commitment",
+      "mean": 0.07692307692307693,
+      "count": 13
+    },
+    {
+      "category": "Effective Date",
+      "mean": 0.1111111111111111,
+      "count": 18
+    },
+    {
+      "category": "Rofr/Rofo/Rofn",
+      "mean": 0.11764705882352941,
+      "count": 17
+    },
+    {
+      "category": "Post-Termination Services",
+      "mean": 0.16666666666666666,
+      "count": 18
+    },
+    {
+      "category": "Exclusivity",
+      "mean": 0.21052631578947367,
+      "count": 19
+    },
+    {
+      "category": "Revenue/Profit Sharing",
+      "mean": 0.29411764705882354,
+      "count": 17
+    },
+    {
+      "category": "Affiliate License-Licensee",
+      "mean": 0.3333333333333333,
+      "count": 3
+    },
+    {
+      "category": "Warranty Duration",
+      "mean": 0.4,
+      "count": 10
+    },
+    {
+      "category": "Audit Rights",
+      "mean": 0.4230769230769231,
+      "count": 26
+    },
+    {
+      "category": "Joint Ip Ownership",
+      "mean": 0.42857142857142855,
+      "count": 7
+    },
+    {
+      "category": "Anti-Assignment",
+      "mean": 0.4444444444444444,
+      "count": 18
+    },
+    {
+      "category": "Non-Disparagement",
+      "mean": 0.5,
+      "count": 4
+    },
+    {
+      "category": "Non-Transferable License",
+      "mean": 0.5,
+      "count": 10
+    },
+    {
+      "category": "Third Party Beneficiary",
+      "mean": 0.5,
+      "count": 2
+    },
+    {
+      "category": "License Grant",
+      "mean": 0.52,
+      "count": 25
+    },
+    {
+      "category": "Change Of Control",
+      "mean": 0.5555555555555556,
+      "count": 9
+    },
+    {
+      "category": "Cap On Liability",
+      "mean": 0.5666666666666667,
+      "count": 30
+    },
+    {
+      "category": "Ip Ownership Assignment",
+      "mean": 0.6,
+      "count": 10
+    },
+    {
+      "category": "Governing Law",
+      "mean": 0.6111111111111112,
+      "count": 18
+    },
+    {
+      "category": "Irrevocable Or Perpetual License",
+      "mean": 0.6666666666666666,
+      "count": 3
+    },
+    {
+      "category": "Source Code Escrow",
+      "mean": 0.6666666666666666,
+      "count": 3
+    },
+    {
+      "category": "Expiration Date",
+      "mean": 0.7142857142857143,
+      "count": 14
+    },
+    {
+      "category": "Termination For Convenience",
+      "mean": 0.875,
+      "count": 8
+    },
+    {
+      "category": "Renewal Term",
+      "mean": 0.8888888888888888,
+      "count": 9
+    },
+    {
+      "category": "Insurance",
+      "mean": 0.9,
+      "count": 20
+    },
+    {
+      "category": "Uncapped Liability",
+      "mean": 0.9090909090909091,
+      "count": 11
+    },
+    {
+      "category": "No-Solicit Of Employees",
+      "mean": 1.0,
+      "count": 2
+    },
+    {
+      "category": "Notice Period To Terminate Renewal",
+      "mean": 1.0,
+      "count": 2
+    }
+  ]
+}
