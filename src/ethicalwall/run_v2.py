@@ -1,9 +1,11 @@
 import argparse
 import gc
 import json
+import pickle
 import random
 from pathlib import Path
 
+import pandas as pd
 import torch
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
@@ -24,6 +26,45 @@ def citation_summary(cit):
             "metadata": rates(cit[meta], "hit"), "top1": rates(cit, "top1")}
 
 
+# every stage writes its output once. if the run dies, rerunning with the same --out picks up from there
+
+def csv_stage(path, make):
+    if path.exists():
+        print("resuming from", path.name)
+        return pd.read_csv(path)
+    frame = make()
+    frame.to_csv(path, index=False)
+    return frame
+
+
+def pickle_stage(path, make):
+    if path.exists():
+        print("resuming from", path.name)
+        return pickle.loads(path.read_bytes())
+    obj = make()
+    tmp = path.with_suffix(".tmp")
+    tmp.write_bytes(pickle.dumps(obj))
+    tmp.replace(path)
+    return obj
+
+
+def generate_stage(folder, convs, make_generator, batch=512):
+    # one file per batch, written to a temp name and renamed, so a kill mid-write never leaves half a batch
+    folder.mkdir(exist_ok=True)
+    generate = None
+    for start in range(0, len(convs), batch):
+        path = folder / f"{start:06d}.json"
+        if path.exists():
+            continue
+        if generate is None:
+            generate = make_generator()
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(generate(convs[start:start + batch])))
+        tmp.replace(path)
+        print(f"generated {min(start + batch, len(convs))}/{len(convs)}")
+    return [t for path in sorted(folder.glob("*.json")) for t in json.loads(path.read_text())]
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--docs", type=int, default=None)
@@ -32,6 +73,8 @@ def main(argv=None):
     p.add_argument("--n-quality", type=int, default=500)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--llm", default="Qwen/Qwen2.5-7B-Instruct")
+    p.add_argument("--retrievers", default="minilm,bge,bge_rerank")
+    p.add_argument("--retrieval-only", action="store_true")
     p.add_argument("--out", default="results/v2")
     args = p.parse_args(argv)
     seed, k = args.seed, args.k
@@ -45,33 +88,49 @@ def main(argv=None):
     print(f"{len(docs)} contracts, {len(chunks)} chunks, {docs.injected.sum()} with a planted instruction")
 
     half = {"torch_dtype": torch.float16} if torch.cuda.is_available() else {}
-    minilm = Index(chunks, SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2"))
-    bge = Index(chunks, SentenceTransformer("BAAI/bge-large-en-v1.5", model_kwargs=half), query_prefix=bge_prefix)
-    rerank = Reranked(bge, CrossEncoder("BAAI/bge-reranker-large", model_kwargs=half))
+    loaded = {}
+
+    def retriever(name):
+        # built on first use, so a resumed run doesn't load models it no longer needs
+        if name not in loaded:
+            if name == "minilm":
+                loaded[name] = Index(chunks, SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2"),
+                                     cache=out / "emb_minilm.npy")
+            elif name == "bge":
+                loaded[name] = Index(chunks, SentenceTransformer("BAAI/bge-large-en-v1.5", model_kwargs=half),
+                                     query_prefix=bge_prefix, cache=out / "emb_bge.npy")
+            else:
+                loaded[name] = Reranked(retriever("bge"), CrossEncoder("BAAI/bge-reranker-large", model_kwargs=half))
+        return loaded[name]
 
     retrieval = {}
-    for name, r in [("minilm", minilm), ("bge", bge), ("bge_rerank", rerank)]:
+    for name in args.retrievers.split(","):
         for query in ("category", "question"):
-            cit = evaluate.run_citation(r, df, docs, random.Random(seed), args.n_citation, k, seed, query)
-            cit.to_csv(out / f"citation_{name}_{query}.csv", index=False)
+            cit = csv_stage(out / f"citation_{name}_{query}.csv", lambda: evaluate.run_citation(
+                retriever(name), df, docs, random.Random(seed), args.n_citation, k, seed, query))
             retrieval[f"{name}/{query}"] = citation_summary(cit)
             print(name, query, f"hit@{k} {retrieval[f'{name}/{query}']['all']['rate']:.3f}")
 
-    rt = evaluate.run_redteam(bge, evaluate.build_redteam(docs, random.Random(seed)), k)
-    rt.to_csv(out / "redteam.csv", index=False)
+    if args.retrieval_only:
+        (out / "summary_retrieval.json").write_text(json.dumps(retrieval, indent=2, default=float))
+        return
 
-    code_cases = answers.build_code_cases(docs, rerank, random.Random(seed), k)
-    inj_cases = answers.build_injection_cases(docs, chunks, rerank, random.Random(seed), k)
-    qual_cases = answers.build_quality_cases(df, docs, rerank, random.Random(seed), args.n_quality, k, seed)
+    rt = csv_stage(out / "redteam.csv", lambda: evaluate.run_redteam(
+        retriever("bge"), evaluate.build_redteam(docs, random.Random(seed)), k))
+
+    code_cases, inj_cases, qual_cases = pickle_stage(out / "cases.pkl", lambda: (
+        answers.build_code_cases(docs, retriever("bge_rerank"), random.Random(seed), k),
+        answers.build_injection_cases(docs, chunks, retriever("bge_rerank"), random.Random(seed), k),
+        answers.build_quality_cases(df, docs, retriever("bge_rerank"), random.Random(seed), args.n_quality, k, seed),
+    ))
 
     # free the retrieval models before vllm takes the gpu
-    del minilm, bge, rerank
+    loaded.clear()
     gc.collect()
     torch.cuda.empty_cache()
 
-    generate = vllm_generator(args.llm)
     convs = [c["messages"] for c in code_cases + inj_cases + qual_cases]
-    outs = generate(convs)
+    outs = generate_stage(out / "generations", convs, lambda: vllm_generator(args.llm))
     a, b = len(code_cases), len(code_cases) + len(inj_cases)
     code = answers.score_code_cases(code_cases, outs[:a], docs)
     inj = answers.score_injection_cases(inj_cases, outs[a:b])
@@ -102,8 +161,7 @@ def main(argv=None):
                        | {"avg_returned_postfilter": rt.n_returned_postfilter.mean(),
                           "avg_returned_filtered": rt.n_returned_filtered.mean()},
         "access_control": access,
-        "injection": {("hardened" if h else "plain"): rates(g, "followed") for h, g in inj.groupby("harden")}
-                     | {"planted_chunk_retrieved": rates(inj[~inj.harden], "retrieved")},
+        "injection": injection_summary(inj),
         "answer_quality": {
             "token_f1": qual.f1.mean(),
             "context_has_answer": rates(qual, "context_has_answer"),
@@ -114,6 +172,12 @@ def main(argv=None):
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2, default=float))
     print(json.dumps(summary, indent=2, default=float))
+
+
+def injection_summary(inj):
+    return ({("hardened" if h else "plain"): rates(g, "followed") for h, g in inj.groupby("harden")}
+            | {("hardened_quoted" if h else "plain_quoted"): rates(g, "quoted") for h, g in inj.groupby("harden")}
+            | {"planted_chunk_retrieved": rates(inj[~inj.harden], "retrieved")})
 
 
 if __name__ == "__main__":
