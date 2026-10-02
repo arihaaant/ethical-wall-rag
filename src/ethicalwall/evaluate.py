@@ -65,16 +65,29 @@ def overlaps(chunk, answers):
                for t, s in zip(answers["text"], answers["answer_start"]))
 
 
-def run_citation(index, df, docs, rng, n=500, k=5, seed=0):
-    # benign questions about contracts the user is allowed to see, scored on span overlap
+def question_details(question):
+    # CUAD questions end with "Details: <what a lawyer would look for>"
+    return question.split("Details:")[-1].strip()
+
+
+def gold_questions(df, docs, n=500, seed=0):
     gold = df[df.title.isin(docs.title) & df.answers.map(lambda a: len(a["text"]) > 0)]
-    gold = gold.sample(min(n, len(gold)), random_state=seed)
+    return gold.sample(min(n, len(gold)), random_state=seed)
+
+
+def run_citation(index, df, docs, rng, n=500, k=5, seed=0, query="category"):
+    # benign questions about contracts the user is allowed to see, scored on span overlap
+    gold = gold_questions(df, docs, n, seed)
     title2client = dict(zip(docs.title, docs.client))
     rows = []
     for r in gold.itertuples():
         c = title2client[r.title]
         user = f"user_{c}" if c in "ABCD" else rng.choice(sorted(users))
-        hits = index.search(f"{r.category} clause in {r.title}", user, k)
+        if query == "category":
+            q = f"{r.category} clause in {r.title}"
+        else:
+            q = f"{r.title}: {question_details(r.question)}"
+        hits = index.search(q, user, k)
         ok = [overlaps(h.payload, r.answers) and h.payload["title"] == r.title for h in hits]
         rows.append({"category": r.category, "title": r.title, "hit": any(ok), "top1": bool(ok) and ok[0]})
     return pd.DataFrame(rows)
